@@ -1,4 +1,5 @@
-# main.py
+# agent_runner.py
+# formerly main.py when deployed on laptop
 """
 SJ Morse Lead Generation Agent (Adapted from HR & Regional B2B)
 
