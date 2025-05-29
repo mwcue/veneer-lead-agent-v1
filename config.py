@@ -34,7 +34,7 @@ class Config:
     ANALYSIS_AGENT_MAX_ITER = int(os.getenv("ANALYSIS_AGENT_MAX_ITER", "10")) # Reviewer uses this too
 
     # --- URLs Processing ---
-    MAX_URLS_TO_PROCESS = int(os.getenv("MAX_URLS_TO_PROCESS", "3")) # Keep at 10 as decided
+    MAX_URLS_TO_PROCESS = int(os.getenv("MAX_URLS_TO_PROCESS", "1")) # choose up to 1o
 
     # --- Output Settings ---
     OUTPUT_PATH = os.getenv("OUTPUT_PATH", os.path.join(os.path.dirname(__file__), "output.csv"))
