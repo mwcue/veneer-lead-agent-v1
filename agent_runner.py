@@ -1,147 +1,140 @@
 # agent_runner.py
-# formerly main.py when deployed on laptop
-"""
-SJ Morse Lead Generation Agent (Adapted from HR & Regional B2B)
-
-This script automates the process of identifying companies for SJ Morse,
-a manufacturer of custom architectural wood veneer panels.
-
-It focuses on predefined target segments, analyzes their potential needs
-for veneer products, and gathers publicly available information.
-
-The system uses the CrewAI framework to organize multiple AI agents.
-The specific agents and their roles will be adapted to target segments like:
-- General Contractors & Design-Build Firms
-- Architects & Interior Designers
-
-The resulting prospect data is saved to a CSV file (currently maintaining original format).
-
-Usage:
-    python main.py
-
-Environment Variables:
-    OPENAI_API_KEY: OpenAI API key for LLM access (or other provider keys)
-    SERPER_API_KEY: Serper API key for web search functionality
-    LLM_PROVIDER: Specifies which LLM provider to use (e.g., "openai", "anthropic")
-
-    Optional variables can be found in the config.py file
-"""
-
 import time
 import logging
+import json # For local testing output if desired
 from dotenv import load_dotenv
 
-# Import our custom modules
+# Project-specific imports
 from url_processor import perform_search
 from company_extractor import extract_companies_from_url, analyze_company
 from output_manager import write_to_csv
-# Import Config and the new SJ_MORSE_PROFILE
-from config import Config, SJ_MORSE_PROFILE
-# Import task creators
-from tasks import create_search_tasks, create_extraction_task
+from config import Config, SJ_MORSE_PROFILE # Ensure SJ_MORSE_PROFILE is correctly defined in config.py
+from tasks import create_search_tasks, create_extraction_task # create_analysis_task, create_review_task are used by analyze_company
 from utils.logging_utils import get_logger, ErrorCollection
+from agents import initialize_agents # Crucial import for agent setup
 
-# Configure logging
-Config.configure_logging()
-logger = get_logger(__name__) # Ensure logger is fetched after configuration
+# --- Global Initializations: These run once when this module is imported ---
+Config.configure_logging() # Configure logging settings (e.g., level, format)
+logger = get_logger(__name__) # Get a logger specific to this module
+load_dotenv() # Load environment variables from .env file
 
-# Load environment variables
-load_dotenv()
+# Initialize tools and perform initial validation globally
+# This way, tools and basic config checks are done once.
+tools = {}
+initial_error_collector = ErrorCollection()
 
-# Import tools and initialize agents
-error_collector = ErrorCollection()
 try:
-    # --- Tool Imports ---
+    logger.debug("agent_runner.py: Attempting to import tools...")
     from tools.scraper_tools import generic_scraper_tool
     from tools.unified_email_finder import unified_email_finder_tool
-    from tools.llm_tools import analyze_pain_points_tool # This tool's internal prompt will need significant change
+    from tools.llm_tools import analyze_pain_points_tool
     from tools.search_tools import web_search_tool
-    # --- Agent Initialization ---
-    # initialize_agents will be adapted to create agents based on SJ_MORSE_PROFILE segments
-    from agents import initialize_agents
+    logger.debug("agent_runner.py: Tools imported.")
+
+    tools = {
+        'web_search': web_search_tool,
+        'generic_scraper': generic_scraper_tool,
+        'email_finder': unified_email_finder_tool,
+        'pain_point_analyzer': analyze_pain_points_tool
+    }
+    logger.info("agent_runner.py: Global tools dictionary initialized.")
 
     if web_search_tool is None:
-        error_collector.add("Tool Initialization",
-                           ValueError("Web Search Tool failed to initialize"),
-                           fatal=True)
+        initial_error_collector.add("Tool Initialization", ValueError("Web Search Tool failed to initialize in agent_runner"), fatal=True)
     else:
-        logger.info("Custom tools imported successfully.")
+        logger.info("agent_runner.py: Web Search Tool confirmed.")
 
+
+    logger.debug("agent_runner.py: Validating config...")
     missing_keys = Config.validate()
     if missing_keys:
-        error_collector.add("Configuration",
-                           ValueError(f"Missing required environment variables: {', '.join(missing_keys)}"),
-                           fatal=True)
+        initial_error_collector.add("Configuration", ValueError(f"Missing required environment variables: {', '.join(missing_keys)}"), fatal=True)
+    else:
+        logger.info("agent_runner.py: Config validation passed (required keys check).")
 
-    # Log API key presence for the configured LLM provider and Serper
-    logger.info(f"LLM_PROVIDER set to: {Config.LLM_PROVIDER}")
+    # Log API key presence for convenience
+    logger.info(f"agent_runner.py: LLM_PROVIDER set to: {Config.LLM_PROVIDER}")
     if Config.LLM_PROVIDER == "openai":
-        logger.info(f"OPENAI_API_KEY presence: {'Yes' if Config.OPENAI_API_KEY else 'No'}")
-    elif Config.LLM_PROVIDER == "anthropic":
-        logger.info(f"ANTHROPIC_API_KEY presence: {'Yes' if Config.ANTHROPIC_API_KEY else 'No'}")
-    # Add more elif for other providers if you log their key presence specifically
-    logger.info(f"SERPER_API_KEY presence: {'Yes' if Config.SERPER_API_KEY else 'No'}")
+        logger.info(f"agent_runner.py: OPENAI_API_KEY presence: {'Yes' if Config.OPENAI_API_KEY else 'No'}")
+    logger.info(f"agent_runner.py: SERPER_API_KEY presence: {'Yes' if Config.SERPER_API_KEY else 'No'}")
 
-except ImportError as e:
-    error_collector.add("Module Import", e, fatal=True)
-except Exception as e:
-    error_collector.add("Initialization", e, fatal=True)
 
-if error_collector.has_fatal_errors():
-    logger.error("Fatal errors during initialization. Exiting.")
-    logger.error(error_collector.get_summary())
-    exit(1)
+    if initial_error_collector.has_fatal_errors():
+        logger.critical(f"Fatal errors during initial setup of agent_runner.py: {initial_error_collector.get_summary()}")
+        # This exception will prevent the module from loading fully if setup fails,
+        # which is good because run_lead_generation_process would be unusable.
+        raise RuntimeError(f"Fatal initial setup error in agent_runner.py: {initial_error_collector.get_summary()}")
+    else:
+        logger.info("agent_runner.py: Initial global setup checks passed successfully.")
 
-# Initialize tools dictionary (remains largely the same for now)
-tools = {
-    'web_search': web_search_tool,
-    'generic_scraper': generic_scraper_tool,
-    'email_finder': unified_email_finder_tool,
-    'pain_point_analyzer': analyze_pain_points_tool
-}
+except ImportError as e_imp:
+    logger.critical(f"Fatal ImportError during agent_runner.py global setup: {e_imp}", exc_info=True)
+    raise # Re-raise to ensure module loading fails clearly
+except Exception as e_gen:
+    logger.critical(f"Fatal Exception during agent_runner.py global setup: {e_gen}", exc_info=True)
+    raise # Re-raise
+# --- End Global Initializations ---
 
-# Main execution block
-if __name__ == "__main__":
-    logger.info(f"\n--- Starting Lead Generation Crew for Client: {SJ_MORSE_PROFILE['CLIENT_NAME']} ---")
+
+# --- Main Process Function ---
+def run_lead_generation_process():
+    """
+    Runs the full lead generation process for the configured client (SJ Morse) and its target segments.
+    Returns a list of processed company data dictionaries.
+    """
+    run_error_collector = ErrorCollection() # For errors specific to this run
+
+    logger.info(f"\n--- Starting Lead Generation Process within agent_runner for Client: {SJ_MORSE_PROFILE['CLIENT_NAME']} ---")
 
     all_processed_companies = []
-    # Keep track of websites processed in this specific run to avoid re-analyzing
     processed_websites_this_run = set()
 
-    # Initialize agents
-    # This function will be updated in agents.py to create agents tailored for SJ Morse segments
+    # Initialize agents for this run. Uses the globally defined `tools` dict.
     try:
-        agents = initialize_agents(tools, SJ_MORSE_PROFILE) # Pass SJ_MORSE_PROFILE to agent initialization
-        logger.info(f"Agents initialized successfully. Available agents: {list(agents.keys())}")
-        # TODO: Update agent key check once agents.py is refactored
-        # e.g., expected_keys = {'research', 'gc_analyzer', 'gc_reviewer', 'architect_analyzer', 'architect_reviewer'}
-        # if not expected_keys.issubset(agents.keys()):
-        #     raise ValueError(f"Expected SJ Morse specific agents not found. Got: {list(agents.keys())}")
+        # `initialize_agents` is imported from `agents.py`
+        # It now expects `tools` (globally defined in this module) and `SJ_MORSE_PROFILE`
+        agents = initialize_agents(tools, SJ_MORSE_PROFILE)
+        logger.info(f"Agents initialized successfully for run. Available agents: {list(agents.keys())}")
     except Exception as e:
-        error_collector.add("Agent Initialization", e, fatal=True)
-        logger.error(f"Fatal error during agent initialization: {e}")
-        logger.error(error_collector.get_summary())
-        exit(1)
+        run_error_collector.add("Agent Initialization for Run", e, fatal=True)
+        logger.error(f"Fatal error during agent initialization for this run: {e}", exc_info=True)
+        # Return a dictionary indicating error, as the process cannot continue
+        return {
+            "error": "Agent initialization failed within run_lead_generation_process",
+            "details": str(e),
+            "processed_companies": all_processed_companies # Likely empty
+        }
 
-    # --- Loop through each target segment defined in SJ_MORSE_PROFILE ---
-    for segment_config in SJ_MORSE_PROFILE["TARGET_SEGMENTS"]:
-        segment_name = segment_config["SEGMENT_NAME"]
+    if 'research' not in agents or not agents['research']:
+        logger.error("Critical: Research agent not found after initialization. Aborting process.")
+        return {
+            "error": "Research agent missing after initialization.",
+            "processed_companies": all_processed_companies
+        }
+
+    # Loop through each target segment defined in SJ_MORSE_PROFILE
+    for segment_config in SJ_MORSE_PROFILE.get("TARGET_SEGMENTS", []): # Use .get for safety
+        segment_name = segment_config.get("SEGMENT_NAME")
+        if not segment_name:
+            logger.warning("Found a segment in profile without a name. Skipping.")
+            continue
+        
         logger.info(f"\n>>> Processing Segment: {segment_name} <<<")
 
-        # Step 1 (per segment): Find relevant URLs for this segment
-        # create_search_tasks will be adapted in tasks.py to use segment_config
         logger.info(f"  Creating search tasks for segment: {segment_name}...")
-        search_tasks = create_search_tasks(agents['research'], segment_config) # Pass research agent and segment_config
+        search_tasks = create_search_tasks(agents['research'], segment_config)
         
         if not search_tasks:
             logger.error(f"  Failed to create search tasks for segment: {segment_name}. Skipping segment.")
+            run_error_collector.add(f"Search Task Creation - {segment_name}", ValueError("Task creation failed"))
             continue
             
         logger.info(f"  Performing search for segment: {segment_name}...")
-        url_list = perform_search(agents, search_tasks) # perform_search uses agents['research']
+        # `perform_search` expects the full `agents` dict to find `agents['research']`
+        url_list = perform_search(agents, search_tasks)
 
         if not url_list:
-            logger.warning(f"  No URLs found by Research Agent for segment: {segment_name}. Skipping to next segment.")
+            logger.warning(f"  No URLs found by Research Agent for segment: {segment_name}.")
             continue
 
         logger.info(f"  Found {len(url_list)} URLs for {segment_name}. Processing up to {Config.MAX_URLS_TO_PROCESS} URLs.")
@@ -150,19 +143,16 @@ if __name__ == "__main__":
         for i, target_url in enumerate(urls_to_process):
             logger.info(f"\n    Processing URL {i+1}/{len(urls_to_process)} for {segment_name}: {target_url}")
 
-            # Step 2a (per URL): Extract Companies
-            # create_extraction_task uses the generic research agent.
             logger.debug(f"      Creating extraction task for URL: {target_url}...")
-            extraction_task = create_extraction_task(target_url, agents['research']) # Pass research agent
+            extraction_task = create_extraction_task(target_url, agents['research'])
             
             if not extraction_task:
                 logger.error(f"      Failed to create extraction task for {target_url}. Skipping URL.")
+                run_error_collector.add(f"Extraction Task Creation - {target_url}", ValueError("Task creation failed"))
                 continue
 
             logger.debug(f"      Extracting companies from URL: {target_url}...")
-            # extract_companies_from_url uses the research agent and its extraction_task
             extracted_company_data = extract_companies_from_url(target_url, agents, extraction_task)
-
 
             if not extracted_company_data:
                 logger.info(f"      No companies extracted from {target_url} for segment {segment_name}.")
@@ -177,105 +167,107 @@ if __name__ == "__main__":
                     logger.warning(f"        Skipping entry with missing name/website: {company_dict}")
                     continue
 
-                # Intra-Run Duplicate Check (website normalization)
-                normalized_website = company_website.strip().lower()
-                if normalized_website.startswith('www.'):
-                   normalized_website = normalized_website[4:]
-                if normalized_website.endswith('/'):
-                    normalized_website = normalized_website[:-1]
-
+                normalized_website = company_website.strip().lower().replace('www.','').rstrip('/')
                 if normalized_website in processed_websites_this_run:
                     logger.info(f"        Skipping already processed website in this run: '{company_name}' ({company_website})")
                     continue
                 
-                # Skip generic names
                 if company_name.lower() in Config.GENERIC_COMPANY_NAMES:
                     logger.info(f"        Skipping generic company name: '{company_name}'")
                     continue
 
-                processed_websites_this_run.add(normalized_website) # Add before analysis
-
+                processed_websites_this_run.add(normalized_website)
                 logger.info(f"        Analyzing '{company_name}' ({company_website}) for segment: {segment_name}")
 
-                # Step 2b (per company): Analyze Company
-                # analyze_company will be adapted in company_extractor.py
-                # It will need the segment_config to select the correct analyzer/reviewer agents
-                # and to pass segment-specific context to task creation.
                 company_analysis_data = analyze_company(
                     company_name=company_name,
                     company_website=company_website,
-                    agents=agents, # Pass all agents
-                    segment_config=segment_config, # Pass the specific segment_config
-                    client_profile=SJ_MORSE_PROFILE # Pass the overall client profile for USPs etc.
+                    agents=agents, # Pass the whole dictionary of initialized agents
+                    segment_config=segment_config,
+                    client_profile=SJ_MORSE_PROFILE
                 )
 
-                if company_analysis_data:
-                    # Store all gathered data.
-                    # The 'category' field from the original structure will be replaced by segment_name
-                    company_analysis_data["source_url"] = target_url
-                    company_analysis_data["segment_name_internal"] = segment_name # For internal use
-                    
-                    # To maintain compatibility with the old CSV format,
-                    # we will add a 'category' key that mirrors segment_name for now.
-                    # This is a temporary measure.
-                    company_analysis_data["category"] = segment_name
-
+                if company_analysis_data: # analyze_company should always return a dict
+                    company_analysis_data["source_url"] = target_url # Ensure source_url is added
+                    company_analysis_data["segment_name_internal"] = segment_name # Internal tracking
+                    company_analysis_data["category"] = segment_name # For CSV compatibility with old format
                     all_processed_companies.append(company_analysis_data)
-                    logger.info(f"        Successfully analyzed '{company_name}'. Email: {company_analysis_data.get('contact_email', 'N/A')}, Points: {company_analysis_data.get('pain_points', 'N/A')[:50]}...")
+                    # Log a snippet of pain points for quick check
+                    pain_points_snippet = str(company_analysis_data.get('pain_points', 'N/A'))[:70]
+                    logger.info(f"        Successfully analyzed '{company_name}'. Email: {company_analysis_data.get('contact_email', 'N/A')}, Pain Points: {pain_points_snippet}...")
                 else:
-                    # Log if analysis returns None, though analyze_company should return a dict with error info
-                    logger.error(f"        Analysis for '{company_name}' (segment: {segment_name}) returned no data. This might indicate an issue in analyze_company.")
-                    # Add a placeholder if necessary to track failures
+                    # This case should ideally be handled by analyze_company returning a dict with an error message
+                    logger.error(f"        Analysis for '{company_name}' (segment: {segment_name}) unexpectedly returned None or falsy value.")
+                    # Add a placeholder if truly nothing was returned
                     all_processed_companies.append({
-                        "name": company_name,
-                        "website": company_website,
-                        "pain_points": "Analysis failed to return data",
-                        "contact_email": "",
-                        "source_url": target_url,
-                        "category": segment_name, # For CSV compatibility
+                        "name": company_name, "website": company_website,
+                        "pain_points": "Critical: Analysis function returned no data", "contact_email": "",
+                        "source_url": target_url, "category": segment_name,
                         "segment_name_internal": segment_name
                     })
-
-
-                # Optional short delay between analyzing companies from the same URL
-                time.sleep(Config.API_RETRY_DELAY / 2 if Config.API_RETRY_DELAY > 0 else 0.5)
+                
+                # Configurable delay
+                sleep_duration = Config.API_RETRY_DELAY / 2 if Config.API_RETRY_DELAY > 0 else 0.5
+                if sleep_duration > 0: # Only sleep if duration is positive
+                    logger.debug(f"        Sleeping for {sleep_duration:.2f} seconds...")
+                    time.sleep(sleep_duration)
 
         logger.info(f"  --- Finished processing URLs for segment: {segment_name} ---")
     logger.info("--- Finished Processing All Segments ---")
 
-    # Step 3: Write Final CSV Output
-    if all_processed_companies:
-        # Log a summary before writing
+    if run_error_collector.has_errors():
+        logger.warning("\n--- Errors Occurred During This Lead Generation Run ---")
+        logger.warning(run_error_collector.get_summary())
+        logger.warning("--- End of Run Error Summary ---")
+    
+    return all_processed_companies
+
+
+# --- Local Execution Block (for direct testing of agent_runner.py) ---
+if __name__ == "__main__":
+    logger.info("<<<<< agent_runner.py executed directly >>>>>")
+    
+    run_start_time = time.time()
+    # Call the main processing function
+    processed_leads = run_lead_generation_process()
+    run_end_time = time.time()
+
+    logger.info(f"Total lead generation process completed in {run_end_time - run_start_time:.2f} seconds.")
+
+    if isinstance(processed_leads, dict) and "error" in processed_leads:
+        logger.error(f"Lead generation process failed: {processed_leads['error']} - Details: {processed_leads.get('details','')}")
+    elif processed_leads: # Check if the list is not empty
         successful_analyses_count = sum(
-            1 for c in all_processed_companies
-            if isinstance(c, dict) and c.get("pain_points") not in [
-                "Initial analysis did not run",
+            1 for company_data in processed_leads
+            if isinstance(company_data, dict) and company_data.get("pain_points") not in [
+                "Initial analysis did not run", 
                 "Analysis failed - non-string result",
-                "Analysis failed - Task creation error",
-                "Analysis failed to return data" # Our new placeholder
-            ] and not str(c.get("pain_points", "")).startswith("Analysis skipped")
-               and not str(c.get("pain_points", "")).startswith("Analysis failed (")
+                "Analysis failed - Task creation error", 
+                "Analysis failed to return data",
+                "Critical: Analysis function returned no data"
+            ] and not str(company_data.get("pain_points", "")).startswith("Analysis skipped")
+               and not str(company_data.get("pain_points", "")).startswith("Analysis failed (") # From company_extractor error case
         )
-        logger.info(f"\n--- Pre-CSV Summary ---")
+        logger.info(f"\n--- Local Execution Summary (agent_runner.py) ---")
         logger.info(f"Client: {SJ_MORSE_PROFILE['CLIENT_NAME']}")
-        logger.info(f"Total Entries Processed (attempts): {len(all_processed_companies)}")
+        logger.info(f"Total Entries Processed (attempts): {len(processed_leads)}")
         logger.info(f"Successfully Analyzed Entries: {successful_analyses_count}")
-        for seg_conf in SJ_MORSE_PROFILE["TARGET_SEGMENTS"]:
-            s_name = seg_conf["SEGMENT_NAME"]
-            count = sum(1 for c in all_processed_companies if isinstance(c,dict) and c.get("segment_name_internal") == s_name)
+        
+        for seg_conf in SJ_MORSE_PROFILE.get("TARGET_SEGMENTS", []):
+            s_name = seg_conf.get("SEGMENT_NAME", "Unnamed Segment")
+            count = sum(1 for c_data in processed_leads if isinstance(c_data, dict) and c_data.get("segment_name_internal") == s_name)
             logger.info(f"  Entries for Segment '{s_name}': {count}")
-        logger.info(f"--------------------------\n")
+        logger.info(f"-------------------------------------------------\n")
 
-        logger.info(f"Writing {len(all_processed_companies)} processed entries (includes failures) to {Config.OUTPUT_PATH}...")
-        # write_to_csv in output_manager.py will still use the old headers for now.
-        # It will look for 'category' (which we've temporarily added) 'name', 'website', 'pain_points', 'contact_email', 'source_url'.
-        write_to_csv(all_processed_companies, Config.OUTPUT_PATH)
+        # Write to CSV for local runs
+        output_file_path = Config.OUTPUT_PATH
+        logger.info(f"Writing {len(processed_leads)} processed entries to {output_file_path} for local run...")
+        write_to_csv(processed_leads, output_file_path) # from output_manager.py
+
+        # Optional: print a snippet of JSON for API output preview during local testing
+        # logger.info("\n--- JSON Output Preview (first 2 entries if available) ---")
+        # print(json.dumps(processed_leads[:2], indent=2))
     else:
-        logger.warning("\nNo company data processed in this run. Skipping CSV output.")
+        logger.warning("No company data was processed or returned in this local run of agent_runner.py.")
 
-    if error_collector.has_errors():
-        logger.warning("\n--- Error Summary ---")
-        logger.warning(error_collector.get_summary())
-        logger.warning("--- End Error Summary ---")
-
-    logger.info("\n--- End of Execution ---")
+    logger.info("\n--- End of direct execution for agent_runner.py ---")
