@@ -1,38 +1,34 @@
 # output_manager.py
 import logging
 import csv
-from datetime import date
-from config import Config # Import Config to use GENERIC_COMPANY_NAMES
+from datetime import date # Keep this import
+from config import Config
 
-# Configure logging
 logger = logging.getLogger(__name__)
+
+# Define the CSV header as a global constant
+# This MUST match the original CSV structure your app expects.
+CSV_EXPORT_HEADER = [
+    'Company Name',
+    'Website',
+    'Potential Pain Points',
+    'Contact Email',
+    'Source URL',
+    'Date Added',
+    'Is Duplicate',
+    'Lead Category' # This was 'segment_name_internal' or 'category' in our data
+]
 
 def write_to_csv(data: list, filename: str):
     """
-    Writes the processed company data (including category) to a CSV file (OVERWRITING).
-
-    Args:
-        data: List of company data dictionaries (expected to have 'category' key)
-        filename: Path to output CSV file
+    Writes the processed company data to a CSV file (OVERWRITING).
+    Uses the global CSV_EXPORT_HEADER.
     """
     logger.info(f"Writing data for {len(data)} processed entries to {filename}")
 
     if not data:
         logger.warning("No data provided to write_to_csv function.")
         return
-
-    # --- MODIFIED: Added 'Lead Category' to header, placed last ---
-    header = [
-        'Company Name',
-        'Website',
-        'Potential Pain Points',
-        'Contact Email',
-        'Source URL',
-        'Date Added',
-        'Is Duplicate', # Keep duplicate flag before category
-        'Lead Category' # New column added at the end
-    ]
-    # --- END MODIFICATION ---
 
     # Use set for efficient duplicate name checking within the output batch
     processed_company_names_in_batch = set()
@@ -43,48 +39,49 @@ def write_to_csv(data: list, filename: str):
 
     try:
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(header)
+            # Use the global CSV_EXPORT_HEADER for DictWriter fieldnames
+            writer = csv.DictWriter(csvfile, fieldnames=CSV_EXPORT_HEADER)
+            writer.writeheader() # Write the header row
 
             for company_info in data:
-                # Ensure it's a dictionary
                 if not isinstance(company_info, dict):
                     logger.warning(f"Skipping non-dictionary item in data: {type(company_info)}")
                     skipped_missing_data += 1
                     continue
 
                 company_name = company_info.get('name', '').strip()
-                company_category = company_info.get('category', 'Unknown') # Get category
+                # 'category' field in company_info should hold the segment name
+                lead_category = company_info.get('category', 'Unknown Segment') 
 
-                # Basic check for essential data
                 if not company_name:
                     logger.warning(f"Skipping entry with missing company name: {company_info.get('website', 'N/A')}")
                     skipped_missing_data += 1
                     continue
 
-                # Skip generic company names (using Config)
                 if company_name.lower() in Config.GENERIC_COMPANY_NAMES:
                     logger.debug(f"Skipping CSV write for generic name: '{company_name}'")
                     skipped_generic += 1
                     continue
 
-                # Check for duplicates *within this specific output batch*
-                # NOTE: This doesn't check against previous runs.
                 is_duplicate_in_batch = company_name in processed_company_names_in_batch
                 processed_company_names_in_batch.add(company_name)
 
-                # Prepare row data including the new category
-                row = [
-                    company_name,
-                    company_info.get('website', 'N/A'),
-                    company_info.get('pain_points', ''),
-                    company_info.get('contact_email', ''),
-                    company_info.get('source_url', 'N/A'),
-                    today_date,
-                    str(is_duplicate_in_batch), # Duplicate status within this run
-                    company_category # Add the category value here
-                ]
-                writer.writerow(row)
+                # Prepare row data ensuring keys match CSV_EXPORT_HEADER
+                row_to_write = {
+                    'Company Name': company_name,
+                    'Website': company_info.get('website', 'N/A'),
+                    'Potential Pain Points': company_info.get('pain_points', ''),
+                    'Contact Email': company_info.get('contact_email', ''),
+                    'Source URL': company_info.get('source_url', 'N/A'), # Ensure this key exists in company_info
+                    'Date Added': today_date,
+                    'Is Duplicate': str(is_duplicate_in_batch),
+                    'Lead Category': lead_category # This comes from company_info['category']
+                }
+                
+                # Ensure only fields defined in header are written, and in correct order by DictWriter
+                # Filter out any extra keys from company_info that are not in CSV_EXPORT_HEADER
+                filtered_row = {k: row_to_write.get(k) for k in CSV_EXPORT_HEADER}
+                writer.writerow(filtered_row)
                 rows_written += 1
 
         logger.info(f"Successfully wrote {rows_written} company rows to {filename} (overwrite mode).")
@@ -92,7 +89,6 @@ def write_to_csv(data: list, filename: str):
             logger.info(f"Skipped writing {skipped_generic} entries due to generic names.")
         if skipped_missing_data > 0:
              logger.info(f"Skipped writing {skipped_missing_data} entries due to missing essential data.")
-        # Log count of unique names identified *in this batch* for clarity
         logger.info(f"Identified {len(processed_company_names_in_batch)} unique company names in this batch.")
 
     except IOError as e:
