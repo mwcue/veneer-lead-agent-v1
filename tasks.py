@@ -5,15 +5,14 @@ from config import SJ_MORSE_PROFILE # To provide client context directly in task
 
 logger = logging.getLogger(__name__)
 
-# --- SEARCH TASKS (Segment-Specific - Assumed to be correct from previous step) ---
+# --- SEARCH TASKS (Segment-Specific & US-Focused for Research Agent) ---
 
 def create_search_tasks(research_agent: Agent, segment_config: dict):
     """
-    Create tasks for the Research Agent to find sources for a SPECIFIC target segment.
-    (Assumed to be correct from previous step)
+    Create tasks for the Research Agent to find sources for a SPECIFIC US-focused target segment.
     """
     segment_name = segment_config.get("SEGMENT_NAME", "Unknown Segment")
-    logger.info(f"Creating search tasks for segment: {segment_name}...")
+    logger.info(f"Creating US-focused search tasks for segment: {segment_name}...")
 
     if not isinstance(research_agent, Agent):
         logger.error(f"Invalid research_agent provided for segment {segment_name}. Cannot create search tasks.")
@@ -22,37 +21,39 @@ def create_search_tasks(research_agent: Agent, segment_config: dict):
         logger.error(f"Invalid segment_config provided for segment {segment_name}. Cannot create search tasks.")
         return []
 
-    search_keywords_examples = segment_config.get("SEARCH_KEYWORDS_EXAMPLES", ["general business news"])
-    geographic_focus_text = segment_config.get("GEOGRAPHIC_FOCUS_TEXT", "the specified region")
+    search_keywords_examples = segment_config.get("SEARCH_KEYWORDS_EXAMPLES", ["general business news in USA"]) # Default to USA
+    geographic_focus_text = segment_config.get("GEOGRAPHIC_FOCUS_TEXT", "the USA") # Default to USA
     client_name = SJ_MORSE_PROFILE.get("CLIENT_NAME", "our client")
 
     plan_search_description = (
         f"Develop a list of 3-5 highly targeted search queries to find online sources "
         f"(articles, lists, directories, industry association member lists) that identify companies "
         f"fitting the profile of '{segment_name}'.\n"
-        f"These companies are potential clients for {client_name}, a manufacturer of custom architectural wood veneer panels.\n"
-        f"The geographic focus for this segment is: {geographic_focus_text}.\n"
-        f"Example search keywords to consider and adapt: {', '.join(search_keywords_examples)}.\n"
-        f"Prioritize queries that will find sources listing multiple relevant companies."
+        f"These companies are potential clients for {client_name}, a premium manufacturer of custom architectural wood veneer panels.\n"
+        f"**CRITICAL GEOGRAPHIC CONSTRAINT: For this segment, you MUST focus exclusively on identifying companies that are verifiably headquartered and primarily operating within the United States of America (USA).**\n"
+        f"The specific US geographic focus for this segment is broadly: {geographic_focus_text}.\n"
+        f"Example search keywords to consider and adapt for a US focus: {', '.join(search_keywords_examples)}.\n"
+        f"For instance, append 'USA', 'in USA', or specific US state/city names to queries.\n"
+        f"Prioritize queries that will find sources listing multiple relevant US-based companies."
     )
     plan_expected_output = (
         "A Python list of 3-5 targeted search query strings specifically designed to find "
-        f"sources listing companies within the '{segment_name}' segment, considering the "
-        f"geographic focus: {geographic_focus_text}."
+        f"sources listing US-based companies within the '{segment_name}' segment, considering the "
+        f"US geographic focus: {geographic_focus_text}."
     )
     
     execute_search_description = (
-        "Execute web searches using the provided list of targeted queries. "
-        f"Find the most relevant articles, lists, or directories for the '{segment_name}' segment, "
-        f"keeping in mind the geographic focus: {geographic_focus_text}. "
-        "Prioritize sources that are likely to list multiple companies fitting this segment profile. "
-        "Filter out irrelevant results."
+        "Execute web searches using the provided list of US-focused targeted queries. "
+        f"Find the most relevant articles, lists, or directories for US-based companies in the '{segment_name}' segment, "
+        f"keeping in mind the US geographic focus: {geographic_focus_text}. "
+        "Prioritize sources that are likely to list multiple US-based companies fitting this segment profile. "
+        "Filter out results that are clearly not US-based companies or not relevant to the segment."
     )
     execute_expected_output = (
         "**CRITICAL:** Your final output MUST be ONLY a Python list of strings, where each string is a unique URL. "
         "Example format: ['https://example.com/list1', 'https://anothersite.org/article', 'https://regionalsource.net/directory']\n"
         "Do NOT include any introductory text, concluding remarks, notes, or any other text before or after the Python list itself. "
-        "The output should start directly with '[' and end directly with ']'. Provide up to 10 unique URLs relevant to the search queries."
+        "The output should start directly with '[' and end directly with ']'. Provide up to 10 unique URLs relevant to the search queries for US-based companies."
     )
 
     try:
@@ -67,21 +68,21 @@ def create_search_tasks(research_agent: Agent, segment_config: dict):
             agent=research_agent,
             context=[plan_search_task]
         )
-        logger.debug(f"Search tasks created successfully for segment: {segment_name}")
+        logger.debug(f"Search tasks created successfully for US-focused segment: {segment_name}")
         return [plan_search_task, execute_search_task]
     except Exception as e:
         logger.error(f"Error creating search tasks for segment {segment_name}: {e}", exc_info=True)
         return []
 
 
-# --- EXTRACTION TASK (Segment-Aware but General Scraper - Assumed correct) ---
+# --- EXTRACTION TASK (Remains relatively general, uses Research Agent) ---
 
 def create_extraction_task(url: str, research_agent: Agent):
     """
     Create a task for the Research Agent to extract company information from a given URL.
-    (Assumed to be correct from previous step)
     """
     logger.info(f"Creating extraction task for URL: {url}")
+
     if not isinstance(research_agent, Agent):
          logger.error(f"Research agent not found or invalid in create_extraction_task for URL {url}. Cannot create task.")
          return None
@@ -104,6 +105,7 @@ def create_extraction_task(url: str, research_agent: Agent):
         "identified on the page. If no companies are found, return an empty list. "
         "Format: [{'name': 'Company Name', 'website': 'https://company-website.com'}, ...]"
     )
+
     try:
         extraction_task = Task(
             description=extraction_description,
@@ -117,7 +119,7 @@ def create_extraction_task(url: str, research_agent: Agent):
         return None
 
 
-# --- ANALYSIS TASK (Fully Implemented) ---
+# --- ANALYSIS TASK (Fully Implemented with Context) ---
 
 def create_analysis_task(company_name: str, company_website: str, analysis_agent: Agent, segment_config: dict, client_profile: dict) -> Task | None:
     """
@@ -132,38 +134,15 @@ def create_analysis_task(company_name: str, company_website: str, analysis_agent
         logger.error(f"Missing required arguments for analysis task creation for {company_name}.")
         return None
 
-    # For the `Company Pain Point Analyzer` tool, we need to pass specific arguments.
-    # The agent needs to be instructed to form this input correctly for the tool.
-    tool_input_description = (
-        "To use the 'Company Pain Point Analyzer' tool, you MUST provide the following inputs to it:\n"
-        "- company_name: (string) The name of the company you are analyzing (which is '{company_name}').\n"
-        "- segment_config: (dict) The configuration for the '{segment_name}' segment. (The system will provide this to the tool based on your current context).\n"
-        "- client_profile: (dict) The profile for {client_name}. (The system will provide this to the tool based on your current context)."
-    )
-    # Note: In CrewAI, the agent doesn't *literally* construct the dict and pass it.
-    # The *framework* handles passing arguments to tools if the tool's `args_schema` is defined
-    # or if the LLM is good at structuring its `action_input`.
-    # The description above helps the LLM understand *what information is needed by the tool*.
-    # The actual passing of complex dicts like segment_config and client_profile to a tool via LLM action_input
-    # can be tricky. The tool's `_run` signature `(self, company_name: str, segment_config: dict, client_profile: dict)`
-    # means the agent needs to be prompted to *know* that these are available or that it should invoke the tool
-    # in a way that these are implicitly passed (if the framework supports it well for complex objects) or by providing
-    # the key pieces of information from those dicts directly in its thought process for the tool.
-
-    # For now, the `PainPointAnalyzerTool` in `llm_tools.py` directly accepts these dicts.
-    # The agent's execution of the task will call the tool. CrewAI's execution layer
-    # will need to map the agent's decision to call the tool with the parameters.
-    # The description primes the agent.
-
     analysis_task_description = (
         f"Your mission is to analyze the company '{company_name}' (Website: {company_website}). "
         f"This company is categorized under the '{segment_name}' segment and is a potential client for {client_name}.\n\n"
         f"Follow these steps:\n"
-        f"1.  **Find Contact Email:** Use the 'Unified Email Finder' tool with the company's website ('{company_website}') to find a general contact email address (e.g., info@, sales@, contact@). Prioritize non-personal, role-based, or departmental emails if available.\n\n"
+        f"1.  **Find Contact Email:** Use the 'Unified Email Finder' tool with the company's website ('{company_website}') to find a general contact email address (e.g., info@, sales@, contact@). Prioritize non-personal, role-based, or departmental emails if available. If you use the 'Contact/About Page URL Finder' tool first to get a specific page, use that page's URL for the email finder; otherwise, use the main company website.\n\n"
         f"2.  **Analyze Pain Points:** Use the 'Company Pain Point Analyzer' tool. "
-        f"You will need to provide it with the company's name ('{company_name}'), the segment configuration for '{segment_name}', and the client profile for '{client_name}'. "
-        f"The tool will help identify 3-5 specific business pain points or opportunities this company likely faces that {client_name} (a premium manufacturer of custom architectural wood veneer panels) can address. "
-        f"Focus on challenges relevant to their potential need for {client_name}'s products/services.\n\n"
+        f"You MUST provide this tool with: the company_name ('{company_name}'), the segment_config (for '{segment_name}'), and the client_profile (for '{client_name}'). "
+        f"The tool will help identify 3-5 specific business pain points or opportunities this company likely faces that {client_name} (a premium US-based manufacturer of custom architectural wood veneer panels) can address. "
+        f"Focus on challenges relevant to their potential need for {client_name}'s products/services as detailed in the segment and client profiles.\n\n"
         f"3.  **Format Output:** Combine the findings into a single, structured response. "
         f"Start with 'Contact Email:' followed by the email found (or 'Email not found.'). "
         f"Then, on a new line, start with 'Pain Points:' followed by the numbered or bulleted list of 3-5 pain points provided by the 'Company Pain Point Analyzer' tool."
@@ -184,10 +163,7 @@ def create_analysis_task(company_name: str, company_website: str, analysis_agent
         analysis_task = Task(
             description=analysis_task_description,
             expected_output=analysis_expected_output,
-            agent=analysis_agent,
-            # Tools are defined at the agent level, but specifying them here can sometimes help the LLM focus.
-            # However, it's generally better if the agent knows its tools from its definition.
-            # tools=[tools_dict['email_finder'], tools_dict['pain_point_analyzer']] # Optional: if agent has many tools
+            agent=analysis_agent
         )
         logger.debug(f"Analysis task created successfully for {company_name} ({segment_name})")
         return analysis_task
@@ -196,7 +172,7 @@ def create_analysis_task(company_name: str, company_website: str, analysis_agent
         return None
 
 
-# --- REVIEW TASK (Fully Implemented) ---
+# --- REVIEW TASK (Fully Implemented with Context) ---
 
 def create_review_task(company_name: str, company_website: str, initial_pain_points: str, review_agent: Agent, segment_config: dict, client_profile: dict) -> Task | None:
     """
@@ -207,14 +183,13 @@ def create_review_task(company_name: str, company_website: str, initial_pain_poi
     client_name = client_profile.get("CLIENT_NAME", "Our Client")
     logger.info(f"Creating review task for '{company_name}' (Segment: {segment_name}) using agent: {review_agent.role if review_agent else 'N/A'}")
 
-    if not all([review_agent, segment_config, client_profile, company_name, company_website, initial_pain_points is not None]): # initial_pain_points can be empty string
+    if not all([review_agent, segment_config, client_profile, company_name, company_website, initial_pain_points is not None]):
         logger.error(f"Missing required arguments for review task creation for {company_name}.")
         return None
 
     client_usps_summary = "; ".join(client_profile.get("CORE_PRODUCTS_USPS", ["providing valuable solutions"]))
     segment_pain_examples_summary = "; ".join(segment_config.get("SEGMENT_SPECIFIC_PAIN_POINTS_SJ_MORSE_CAN_SOLVE", ["their specific needs"]))
 
-    # Ensure initial_pain_points is formatted clearly if it's a multi-line string
     formatted_initial_points = "\n".join([f"  - {line.strip()}" for line in initial_pain_points.split('\n') if line.strip()])
     if not formatted_initial_points:
         formatted_initial_points = "  - No specific initial pain points were provided or extracted clearly."
@@ -226,11 +201,11 @@ def create_review_task(company_name: str, company_website: str, initial_pain_poi
         f"**Segment:** '{segment_name}' (Typical segment challenges that {client_name} addresses: {segment_pain_examples_summary})\n\n"
         f"**Initial Pain Points Submitted for Review:**\n{formatted_initial_points}\n\n"
         f"**Your Critical Review Objectives:**\n"
-        f"1.  **Validate Specificity & Relevance:** Scrutinize each initial pain point. Is it concrete and directly related to the challenges a '{segment_name}' company would face concerning architectural wood veneer panels? Does it avoid generic business platitudes?\n"
+        f"1.  **Validate Specificity & Relevance:** Scrutinize each initial pain point. Is it concrete and directly related to the challenges a '{segment_name}' company (specifically a US-based one) would face concerning architectural wood veneer panels? Does it avoid generic business platitudes?\n"
         f"2.  **Align with {client_name}'s Solutions:** Does each point clearly highlight a problem that {client_name}'s specific products (e.g., AWI Premium Grade panels, custom CNC work, reliable regional delivery, cut-to-size services) can solve effectively? The connection must be obvious.\n"
         f"3.  **Refine or Reject:**\n"
-           f"*   If a point is too vague (e.g., 'improve material sourcing'), REFINE it into a specific, compelling problem (e.g., 'Experiences inconsistent quality and long lead times when sourcing specialized veneers, impacting project schedules and finish standards.').\n"
-           f"*   If a point is irrelevant to {client_name}'s veneer business or unfixably generic, REJECT it and explain briefly in your thought process (not in the final output list). Aim to replace rejected points if possible to maintain 3-5 quality points.\n"
+        f"    *   If a point is too vague (e.g., 'improve material sourcing'), REFINE it into a specific, compelling problem (e.g., 'Experiences inconsistent quality and long lead times when sourcing specialized veneers for US-based projects, impacting project schedules and finish standards.').\n" # Added US context
+        f"    *   If a point is irrelevant to {client_name}'s veneer business or unfixably generic, REJECT it and explain briefly in your thought process (not in the final output list). Aim to replace rejected points if possible to maintain 3-5 quality points.\n"
         f"4.  **Ensure Actionability:** The refined pain points should give the sales team a clear angle for approaching '{company_name}'.\n\n"
         f"**Final Output Requirements:**\n"
         f"Produce ONLY a numbered list of 3-5 **final, high-quality, refined or validated pain points**. "
@@ -239,14 +214,11 @@ def create_review_task(company_name: str, company_website: str, initial_pain_poi
     )
 
     review_expected_output = (
-        "A final, refined list of 3-5 specific business pain points for the company, "
-        f"clearly relevant to the '{segment_name}' segment and demonstrating how {client_name}'s "
-        "custom architectural wood veneer panels can provide a solution. "
-        "The output should be ONLY a numbered or bulleted list. "
-        "Example:\n"
-        "1. Consistent difficulty in sourcing specific exotic veneers that meet both aesthetic requirements and AWI Premium Grade standards for high-end hospitality projects.\n"
-        "2. Project delays and budget overruns due to inconsistencies or damage in veneer panels sourced from multiple, less reliable suppliers.\n"
-        "3. Limited in-house capacity for precise cut-to-size and edge-banding of veneer panels, increasing on-site labor costs and waste."
+        "ONLY a numbered list of 3-5 final, refined, or validated pain points. Each point must be specific, "
+        f"relevant to '{company_name}' (a US-based '{segment_name}'), and clearly addressable by {client_name}'s " # Added US-based
+        "custom architectural wood veneer panel solutions. "
+        "Example of a well-refined point (for a GC): '1. Faces significant project risks and potential penalties due to millwork subcontractors failing to meet AWI Premium Grade specifications for veneer work on critical, high-visibility US-based installations.'\n" # Added US-based
+        "Ensure NO extra text, headers, or explanations accompany this list."
     )
 
     try:
@@ -254,11 +226,9 @@ def create_review_task(company_name: str, company_website: str, initial_pain_poi
             description=review_task_description,
             expected_output=review_expected_output,
             agent=review_agent
-            # No tools typically assigned to reviewer agent, it relies on LLM reasoning.
         )
         logger.debug(f"Review task created successfully for {company_name} ({segment_name})")
         return review_task
     except Exception as e:
         logger.error(f"Error creating review task for {company_name}: {e}", exc_info=True)
         return None
-
