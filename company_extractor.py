@@ -183,6 +183,13 @@ def extract_companies_from_url(url: str, agents: dict, extraction_task: Task) ->
 
     except Exception as e:
         logger.error(f"  Error during company extraction process for '{url}': {e}", exc_info=True)
+    # ↓↓↓ ADD THIS BLOCK just before `return rows`
+    # ------------------------------------------------------------------
+    # If TEST_URL mode is on or research agent failed, use the fallback
+    if not rows and os.getenv("TEST_URL"):
+        logger.info("[Fallback] Research agent unavailable – running simple link extractor")
+        rows = _fallback_list_parser(html)          # ← already defined below
+    # ------------------------------------------------------------------
 
     return extracted_company_data
 
