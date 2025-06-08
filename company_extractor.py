@@ -3,12 +3,15 @@ import logging
 import ast
 import re
 import time
+from bs4 import BeautifulSoup
 from crewai import Crew, Process, CrewOutput, Agent, Task
 from config import Config # For GENERIC_COMPANY_NAMES
 # Import task creators from tasks.py
 from tasks import create_analysis_task, create_review_task
 # Use the more robust parser from utils.parser for consistency
 from utils.parser import parse_company_data as parse_company_website_list
+from tools.scraper_tools import generic_scraper_tool   # <-- NEW
+
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +130,18 @@ def extract_companies_from_url(url: str, agents: dict, extraction_task: Task) ->
         logger.error(f"Invalid extraction_task provided for URL: {url}")
         return []
 
+    if not extracted_company_data:
+        try:
+            page_html = generic_scraper_tool(url)
+            extracted_company_data = _fallback_list_parser(page_html)
+            if extracted_company_data:
+                logger.info(
+                    f"[Fallback] extracted {len(extracted_company_data)} companies from {url}"
+                )
+        except Exception as e:
+            logger.warning(f"[Fallback] fetch failed for {url}: {e}")
+
+
     try:
         extraction_crew = Crew(
             agents=[research_agent], # Only the research agent performs this task
@@ -145,12 +160,24 @@ def extract_companies_from_url(url: str, agents: dict, extraction_task: Task) ->
             raw_output = extraction_result_object
         
         if raw_output:
-            # Using the robust parser from utils.parser
+            # ---- Primary LLM-style parser -------------------------------
             extracted_company_data = parse_company_website_list(raw_output)
+
+            # ---- Fallback #1: HTML scrape if nothing found --------------
+            if not extracted_company_data:
+                try:
+                    page_html = generic_scraper_tool(url)          # fetch HTML with polite UA
+                    extracted_company_data = _fallback_list_parser(page_html)
+                    if extracted_company_data:
+                        logger.info(f"  Fallback parser extracted {len(extracted_company_data)} companies from {url}.")
+                except Exception as fetch_err:
+                    logger.warning(f"  Fallback HTML fetch failed for {url}: {fetch_err}")
+
+            # ---- Logging ------------------------------------------------
             if extracted_company_data:
                 logger.info(f"  Extracted {len(extracted_company_data)} company/website pairs from {url}.")
             else:
-                logger.info(f"  Parsing company list returned no results for {url} (Raw: {raw_output[:100]}...).")
+                logger.info(f"  No companies extracted from {url}.")
         else:
             logger.warning(f"  Extraction crew returned no parsable output for {url}.")
 
@@ -187,6 +214,33 @@ def analyze_company(company_name: str, company_website: str, agents: dict, segme
         "segment_name_internal": segment_name, # For internal tracking
         "category": segment_name # For CSV compatibility with old format
     }
+
+def _fallback_list_parser(html: str) -> list[dict]:
+    """
+    Very lightweight parser that tries to pull a company-name list
+    from common directory pages (Wikipedia tables, plain UL/OL, etc.).
+    Returns list of {"name": .., "website": ""}.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    rows: list[dict] = []
+
+    # ── 1  Wikipedia «wikitable» (rank, company, …) ────────────
+    for tr in soup.select("table.wikitable tr"):
+        tds = tr.find_all("td")
+        if len(tds) >= 2:
+            name = tds[1].get_text(" ", strip=True)
+            if name and len(name.split()) > 1:
+                rows.append({"name": name, "website": ""})
+
+    # ── 2  Plain <li> text lists  ──────────────────────────────
+    if not rows:
+        for li in soup.select("ul li, ol li"):
+            txt = li.get_text(" ", strip=True)
+            # Simple regex: skip very short / all-caps / numeric lines
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9 &.,'()-]{4,}", txt):
+                rows.append({"name": txt, "website": ""})
+
+    return rows
 
     # --- Determine Agent Keys based on Segment Name ---
     analyzer_agent_key = f"{segment_name}_analyzer"

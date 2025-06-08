@@ -3,15 +3,38 @@
 # --- Standard Library Imports ---
 import logging
 import re
-import time
 from urllib.parse import urljoin, urlparse
-
 # --- Third-party Imports ---
-import requests
 from bs4 import BeautifulSoup, Tag # Import Tag
-
 # --- CrewAI Imports ---
 from crewai.tools import BaseTool
+# tools/scraper_tools.py
+import requests, time, random, logging
+
+logger = logging.getLogger(__name__)
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; LeadGenBot/1.0; "
+        "+https://sjmorse.com/lead-bot)"
+    )
+}
+
+def generic_scraper_tool(url: str, retries: int = 3, timeout: int = 20) -> str:
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=timeout)
+            if resp.status_code == 200 and resp.text.strip():
+                return resp.text
+            logger.warning(f"[Scraper] {url} → {resp.status_code}")
+        except Exception as e:
+            logger.warning(f"[Scraper] attempt {attempt+1}/{retries} failed: {e}")
+        time.sleep(random.uniform(1.0, 2.0))
+    raise RuntimeError(f"Cannot access URL {url}")
+
+
+
+
 
 # --- Logger Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -149,3 +172,20 @@ class GenericWebScraperTool(BaseTool):
 
 # --- Instantiate Tool 3 ---
 generic_scraper_tool = GenericWebScraperTool()
+
+
+
+def generic_scraper_tool(url: str) -> str:
+    headers = {
+        "User-Agent": ("Mozilla/5.0 (compatible; LeadGenBot/1.0; "
+                       "+https://lead-generator)")
+    }
+    for _ in range(3):
+        try:
+            r = requests.get(url, headers=headers, timeout=15)
+            if r.status_code == 200:
+                return r.text
+            time.sleep(1.5)
+        except requests.RequestException:
+            time.sleep(1.5)
+    raise ValueError("Cannot access URL")
