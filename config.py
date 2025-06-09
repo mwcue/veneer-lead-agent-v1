@@ -34,7 +34,7 @@ class Config:
     ANALYSIS_AGENT_MAX_ITER = int(os.getenv("ANALYSIS_AGENT_MAX_ITER", "10")) # Reviewer uses this too
 
     # --- URLs Processing ---
-    MAX_URLS_TO_PROCESS = int(os.getenv("MAX_URLS_TO_PROCESS", "3")) # Keep at 10 as decided
+    MAX_URLS_TO_PROCESS = int(os.getenv("MAX_URLS_TO_PROCESS", "10")) # Keep at 10 as decided
 
     # --- Output Settings ---
     OUTPUT_PATH = os.getenv("OUTPUT_PATH", os.path.join(os.path.dirname(__file__), "output.csv"))
@@ -120,42 +120,42 @@ SJ_MORSE_PROFILE = {
         "Some clients found via Decorative Hardwoods Association."
     ],
     "TARGET_SEGMENTS": [
-        {
-            "SEGMENT_NAME": "General Contractors & Design-Build Firms",
-            "SEARCH_KEYWORDS_EXAMPLES": [
-                "top general contractors Washington DC", "leading design-build firms Philadelphia",
-                "commercial construction companies NYC", "Richmond VA general contractors",
-                "general contractors specializing in corporate interiors [region]",
-                "design-build firms hospitality projects [region]"
-            ],
-            "GEOGRAPHIC_FOCUS_TEXT": "DC-Baltimore metro, Philadelphia metro, New York City metro, Richmond metro",
-            "GEOGRAPHIC_AREAS_FOR_SEARCH": ["Washington DC", "Baltimore MD", "Philadelphia PA", "New York NY", "Richmond VA"],
-            "PROJECT_CRITERIA_EXAMPLES": [
-                "Handling mid-to-large scale commercial or institutional projects.",
-                "Projects involving significant interior finishing work.",
-                "Value quality and adherence to specifications (AWI).",
-                "Likely to subcontract millwork and veneer panel supply."
-            ],
-            "DECISION_MAKER_TITLES_TO_SUGGEST": [
-                "Project Executive", "Senior Project Manager", "Purchasing Manager",
-                "Director of Preconstruction", "Estimator"
-            ],
-            "SEGMENT_SPECIFIC_PAIN_POINTS_SJ_MORSE_CAN_SOLVE": [
-                "Ensuring millwork subcontractors meet AWI Premium Grade veneer specs.",
-                "Coordinating timely delivery of veneer panels to keep projects on schedule.",
-                "Risk of veneer damage during transit from distant suppliers.",
-                "Matching veneer panels across different areas or phases of a large project.",
-                "Finding reliable suppliers for custom or complex veneer requirements.",
-                "Need for precise cut-to-size or pre-machined panels to save on-site labor."
-                "Difficulty holding millwork subcontractors accountable to strict AWI Premium Grade veneer specifications, leading to potential rework or client disputes.", # More specific
-                "Project delays caused by veneer panel suppliers with long or unreliable lead times, impacting overall construction schedules.", # More specific
-                "Receiving veneer panels damaged during long-haul freight, causing costly replacements and project setbacks (mitigated by SJ Morse's regional delivery).", # Highlights USP
-                "Challenges in achieving consistent grain, color, and finish for veneer panels across large or phased projects when sourcing from multiple or less capable suppliers.", # More detail
-                "Struggles to find a single, reliable veneer panel supplier who can handle complex custom requirements AND provide value-added services like cut-to-size or edge-banding.", # Highlights service breadth
-                "Increased on-site labor costs and material waste due to inaccuracies in veneer panels not supplied as precisely cut-to-size." # Quantifies impact  
-            ],
-            "PRODUCT_FOCUS_FOR_SEGMENT": "High-quality, custom architectural wood veneer panels, potentially with cut-to-size and edge-banding services to support their millwork subs or direct installation."
-        },
+#        {
+#            "SEGMENT_NAME": "General Contractors & Design-Build Firms",
+#            "SEARCH_KEYWORDS_EXAMPLES": [
+#                "top general contractors Washington DC", "leading design-build firms Philadelphia",
+#                "commercial construction companies NYC", "Richmond VA general contractors",
+#                "general contractors specializing in corporate interiors [region]",
+#                "design-build firms hospitality projects [region]"
+#            ],
+#            "GEOGRAPHIC_FOCUS_TEXT": "DC-Baltimore metro, Philadelphia metro, New York City metro, Richmond metro",
+#            "GEOGRAPHIC_AREAS_FOR_SEARCH": ["Washington DC", "Baltimore MD", "Philadelphia PA", "New York NY", "Richmond VA"],
+#            "PROJECT_CRITERIA_EXAMPLES": [
+#                "Handling mid-to-large scale commercial or institutional projects.",
+#                "Projects involving significant interior finishing work.",
+#                "Value quality and adherence to specifications (AWI).",
+#                "Likely to subcontract millwork and veneer panel supply."
+#            ],
+#            "DECISION_MAKER_TITLES_TO_SUGGEST": [
+#                "Project Executive", "Senior Project Manager", "Purchasing Manager",
+#                "Director of Preconstruction", "Estimator"
+#            ],
+#            "SEGMENT_SPECIFIC_PAIN_POINTS_SJ_MORSE_CAN_SOLVE": [
+#                "Ensuring millwork subcontractors meet AWI Premium Grade veneer specs.",
+#                "Coordinating timely delivery of veneer panels to keep projects on schedule.",
+#                "Risk of veneer damage during transit from distant suppliers.",
+#                "Matching veneer panels across different areas or phases of a large project.",
+#                "Finding reliable suppliers for custom or complex veneer requirements.",
+#                "Need for precise cut-to-size or pre-machined panels to save on-site labor."
+#                "Difficulty holding millwork subcontractors accountable to strict AWI Premium Grade veneer specifications, leading to potential rework or client disputes.", # More specific
+#                "Project delays caused by veneer panel suppliers with long or unreliable lead times, impacting overall construction schedules.", # More specific
+#                "Receiving veneer panels damaged during long-haul freight, causing costly replacements and project setbacks (mitigated by SJ Morse's regional delivery).", # Highlights USP
+#                "Challenges in achieving consistent grain, color, and finish for veneer panels across large or phased projects when sourcing from multiple or less capable suppliers.", # More detail
+#                "Struggles to find a single, reliable veneer panel supplier who can handle complex custom requirements AND provide value-added services like cut-to-size or edge-banding.", # Highlights service breadth
+#                "Increased on-site labor costs and material waste due to inaccuracies in veneer panels not supplied as precisely cut-to-size." # Quantifies impact  
+#            ],
+#            "PRODUCT_FOCUS_FOR_SEGMENT": "High-quality, custom architectural wood veneer panels, potentially with cut-to-size and edge-banding services to support their millwork subs or direct installation."
+#       },
         {
             "SEGMENT_NAME": "Architects & Interior Designers",
             "SEARCH_KEYWORDS_EXAMPLES": [
