@@ -110,7 +110,6 @@ SJ_MORSE_PROFILE = {
     "CLIENT_NAME": "SJ Morse",
     "WEBSITE": "https://sjmorse.com/",
     "CORE_PRODUCTS_USPS": [
-        # ... (existing USPs - keep these as they are) ...
         "Manufacturer of custom architectural wood veneer panels.",
         "AWI Premium Grade certification (signifies high quality and adherence to standards).",
         "Full-service capabilities: veneer selection, engineering, manufacturing, delivery.",
@@ -119,48 +118,45 @@ SJ_MORSE_PROFILE = {
         "In-house truck delivery (potential USP for regional clients - mentioned in earlier prompt, good to keep in mind)."
     ],
     "EXISTING_CLIENT_INFO": [
-        # ... (existing client info - keep as is) ...
         "~250 clients served over the years.",
         "Approx. 50% are members of the Architectural Woodwork Institute (AWI).",
         "Some clients found via Decorative Hardwoods Association."
     ],
     "TARGET_SEGMENTS": [
         # === EXISTING SEGMENT 1: General Contractors & Design-Build Firms ===
-        {
-            "SEGMENT_NAME": "General Contractors & Design-Build Firms",
-            # ... (all existing details for this segment - keep as is) ...
-            "SEARCH_KEYWORDS_EXAMPLES": [ 
-                "top general contractors Washington DC", "leading design-build firms Philadelphia",
-                "commercial construction companies NYC", "Richmond VA general contractors",
-                "general contractors specializing in corporate interiors [region]",
-                "design-build firms hospitality projects [region]"
-            ],
-            "GEOGRAPHIC_FOCUS_TEXT": "DC-Baltimore metro, Philadelphia metro, New York City metro, Richmond metro",
-            "GEOGRAPHIC_AREAS_FOR_SEARCH": ["Washington DC", "Baltimore MD", "Philadelphia PA", "New York NY", "Richmond VA"],
-            "PROJECT_CRITERIA_EXAMPLES": [ 
-                "Handling mid-to-large scale commercial or institutional projects.",
-                "Projects involving significant interior finishing work.",
-                "Value quality and adherence to specifications (AWI).",
-                "Likely to subcontract millwork and veneer panel supply."
-            ],
-            "DECISION_MAKER_TITLES_TO_SUGGEST": [ 
-                "Project Executive", "Senior Project Manager", "Purchasing Manager",
-                "Director of Preconstruction", "Estimator"
-            ],
-            "SEGMENT_SPECIFIC_PAIN_POINTS_SJ_MORSE_CAN_SOLVE": [ 
-                "Difficulty holding millwork subcontractors accountable to strict AWI Premium Grade veneer specifications, leading to potential rework or client disputes.",
-                "Project delays caused by veneer panel suppliers with long or unreliable lead times, impacting overall construction schedules.",
-                "Receiving veneer panels damaged during long-haul freight, causing costly replacements and project setbacks (mitigated by SJ Morse's regional delivery).",
-                "Challenges in achieving consistent grain, color, and finish for veneer panels across large or phased projects when sourcing from multiple or less capable suppliers.",
-                "Struggles to find a single, reliable veneer panel supplier who can handle complex custom requirements AND provide value-added services like cut-to-size or edge-banding.",
-                "Increased on-site labor costs and material waste due to inaccuracies in veneer panels not supplied as precisely cut-to-size."
-            ],
-            "PRODUCT_FOCUS_FOR_SEGMENT": "High-quality, custom architectural wood veneer panels, potentially with cut-to-size and edge-banding services to support their millwork subs or direct installation."
-        },
+       # {
+       #     "SEGMENT_NAME": "General Contractors & Design-Build Firms",
+       #     "SEARCH_KEYWORDS_EXAMPLES": [ 
+       #         "top general contractors Washington DC", "leading design-build firms Philadelphia",
+       #         "commercial construction companies NYC", "Richmond VA general contractors",
+       #         "general contractors specializing in corporate interiors [region]",
+       #         "design-build firms hospitality projects [region]"
+       #     ],
+       #     "GEOGRAPHIC_FOCUS_TEXT": "DC-Baltimore metro, Philadelphia metro, New York City metro, Richmond metro",
+       #     "GEOGRAPHIC_AREAS_FOR_SEARCH": ["Washington DC", "Baltimore MD", "Philadelphia PA", "New York NY", "Richmond VA"],
+       #     "PROJECT_CRITERIA_EXAMPLES": [ 
+       #         "Handling mid-to-large scale commercial or institutional projects.",
+       #         "Projects involving significant interior finishing work.",
+       #         "Value quality and adherence to specifications (AWI).",
+       #         "Likely to subcontract millwork and veneer panel supply."
+       #     ],
+       #     "DECISION_MAKER_TITLES_TO_SUGGEST": [ 
+       #         "Project Executive", "Senior Project Manager", "Purchasing Manager",
+       #         "Director of Preconstruction", "Estimator"
+       #     ],
+       #     "SEGMENT_SPECIFIC_PAIN_POINTS_SJ_MORSE_CAN_SOLVE": [ 
+       #         "Difficulty holding millwork subcontractors accountable to strict AWI Premium Grade veneer specifications, leading to potential rework or client disputes.",
+       #         "Project delays caused by veneer panel suppliers with long or unreliable lead times, impacting overall construction schedules.",
+       #         "Receiving veneer panels damaged during long-haul freight, causing costly replacements and project setbacks (mitigated by SJ Morse's regional delivery).",
+       #         "Challenges in achieving consistent grain, color, and finish for veneer panels across large or phased projects when sourcing from multiple or less capable suppliers.",
+       #         "Struggles to find a single, reliable veneer panel supplier who can handle complex custom requirements AND provide value-added services like cut-to-size or edge-banding.",
+       #         "Increased on-site labor costs and material waste due to inaccuracies in veneer panels not supplied as precisely cut-to-size."
+       #     ],
+       #     "PRODUCT_FOCUS_FOR_SEGMENT": "High-quality, custom architectural wood veneer panels, potentially with cut-to-size and edge-banding services to support their millwork subs or direct installation."
+        #},
         # === EXISTING SEGMENT 2: Architects & Interior Designers ===
         {
-            "SEGMENT_NAME": "Architects & Interior Designers",
-            # ... (all existing details for this segment - keep as is) ...
+            "SEGMENT_NAME": "Architects & Interior Designers (Corporate & Luxury Focus)",
             "SEARCH_KEYWORDS_EXAMPLES": [ 
                 "top architectural firms hospitality design [city/state]",
                 "interior design firms civic projects [city/state]",
@@ -193,7 +189,7 @@ SJ_MORSE_PROFILE = {
 
         # === NEW SEGMENT 3: Architectural Millwork & Woodworking Shops ===
         {
-            "SEGMENT_NAME": "Architectural Millwork & Woodworking Shops",
+            "SEGMENT_NAME": "Specialty Millwork & Architectural Woodworking Shops",
             "SEARCH_KEYWORDS_EXAMPLES": [
                 "custom millwork shops [city/state]", "architectural woodworking companies [region]",
                 "AWI certified millwork shops", "commercial casework manufacturers [region]",
@@ -224,7 +220,7 @@ SJ_MORSE_PROFILE = {
 
         # === NEW SEGMENT 4: Institutional & Government Owners ===
         {
-            "SEGMENT_NAME": "Institutional & Government Owners",
+            "SEGMENT_NAME": "Institutional & End-User Owners (Corporate, Govt, Healthcare, Education)",
             "SEARCH_KEYWORDS_EXAMPLES": [
                 "university facilities management [state]", "hospital capital projects [region]",
                 "government building renovation contracts", "courthouse construction GSA",
@@ -257,7 +253,7 @@ SJ_MORSE_PROFILE = {
         # === NEW SEGMENT 5: High-End Residential & Specialty Outfitters ===
         # (e.g., custom home builders, yacht fitters, luxury retail designers)
         {
-            "SEGMENT_NAME": "High-End Residential & Specialty Outfitters",
+            "SEGMENT_NAME": "Luxury Residential, Yacht & Private Aviation Outfitters",
             "SEARCH_KEYWORDS_EXAMPLES": [
                 "luxury home builders [city/state]", "custom yacht interior outfitters",
                 "high-end residential architects [region]", "bespoke furniture makers wood veneer",
